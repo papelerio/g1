@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Máquina de música casi azarosa</title>
+<style>
+:root{--c7:#0e7490;--c6:#c2257f;--bg:#eef1f6;--sf:#fff;--tx:#18202e;--mu:#6a7488;--bd:#d3d9e4;--c1:#2563d6;--c2:#d9531e;--c3:#7c3aed;--c4:#0d9466;--c5:#a8790a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--c7:#4cc9e8;--c6:#ff7ac6;--bg:#0e1522;--sf:#162033;--tx:#e6ebf5;--mu:#8793ab;--bd:#26334b;--c1:#6ea8ff;--c2:#ff8a5c;--c3:#b58cff;--c4:#3fd6a0;--c5:#e6c35c}}
+:root[data-theme="dark"]{--c7:#4cc9e8;--c6:#ff7ac6;--bg:#0e1522;--sf:#162033;--tx:#e6ebf5;--mu:#8793ab;--bd:#26334b;--c1:#6ea8ff;--c2:#ff8a5c;--c3:#b58cff;--c4:#3fd6a0;--c5:#e6c35c}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:18px 16px 32px}
+header{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+h1{font-size:1.5rem;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--mu);margin:4px 0 0;max-width:46ch}
+#pw{font:700 1.1rem system-ui,sans-serif;min-width:104px;height:52px;border-radius:26px;border:2px solid var(--tx);background:transparent;color:var(--tx);cursor:pointer}
+#pw[aria-pressed="true"]{background:var(--c4);border-color:var(--c4);color:#06210f}
+#pw:focus-visible,select:focus-visible,input:focus-visible,.dice:focus-visible{outline:3px solid var(--c1);outline-offset:2px}
+.roll{margin:16px 0;background:var(--sf);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+canvas{display:block;width:100%;height:270px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--bd);color:var(--mu);font-size:.82rem}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.cols{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+@media(max-width:760px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px}
+.sl{margin-bottom:12px}
+.sl label{display:flex;justify-content:space-between;font-weight:600}
+.sl small{display:block;color:var(--mu);font-size:.8rem}
+input[type=range]{width:100%;accent-color:var(--c1)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+select{font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+.dice{font:inherit;font-weight:600;padding:7px 12px;border-radius:6px;border:1px solid var(--tx);background:transparent;color:var(--tx);cursor:pointer}
+h2{font-size:1rem;margin:0 0 8px}
+#log{list-style:none;margin:0;padding:0;min-height:300px}
+#log li{padding:4px 0;border-bottom:1px solid var(--bd);font-size:.88rem;display:flex;gap:8px}
+#log b{min-width:68px}
+#st{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+#st span{border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:.82rem}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body><main>
+<header>
+ <div><h1>Máquina de música casi azarosa</h1>
+ <p class="sub">Nadie compone nada: cada nota nace de una tirada de porcentajes que depende de lo que sonó antes.</p></div>
+ <button id="pw" aria-pressed="false">OFF</button>
+</header>
+<div class="roll"><canvas id="cv"></canvas>
+ <div class="legend"><span><i style="background:var(--c1)"></i>nota nueva</span><span><i style="background:var(--c2)"></i>nota repetida</span><span><i style="background:var(--c3)"></i>patrón / compás guardado</span><span><i style="background:var(--c6)"></i>arpegio</span><span><i style="background:var(--c7)"></i>ritmo copiado</span><span><i style="background:var(--tx)"></i>tu nota</span><span><i style="background:var(--mu)"></i>acompañante</span><span><i style="background:var(--c4)"></i>armonía</span><span><i style="background:var(--c5)"></i>bajo</span><span>franja gris: silencio</span></div></div>
+<div class="cols">
+ <section class="panel"><h2>Los porcentajes</h2><div id="sls"></div>
+  <div class="row"><label>Escala <select id="scale"></select></label><label>Tónica <select id="key"></select></label>
+  <label><input type="checkbox" id="oPno" checked> Piano</label><label><input type="checkbox" id="oBas" checked> Bajo</label><label><input type="checkbox" id="oPad" checked> Acordes ambiente</label><label><input type="checkbox" id="oDru" checked> Batería</label><label><input type="checkbox" id="oInt"> Entrometerse (teclas 1 a 5)</label></div>
+  <div class="row" id="keys" style="display:none"><button class="dice">1</button><button class="dice">2</button><button class="dice">3</button><button class="dice">4</button><button class="dice">5</button><small style="flex-basis:100%;color:var(--mu)">Usa las teclas 1 a 5 de tu teclado (si no responden, haz clic una vez dentro de la página). Los botones son solo para pantallas táctiles. La música automática sigue sonando y tus notas se meten en ella: la máquina continúa desde la última que tocaste. Tú marcas hacia dónde ir: 1 baja o se queda cerca, 5 sube más. La máquina elige la nota que mejor suena con la anterior y el acorde. Si repites una tecla demasiado, desobedece.</small>
+  <button class="dice" id="dice">Sorpréndeme</button> <button class="dice" id="fresh">Nuevo comienzo</button><small style="display:block;margin-top:8px;color:var(--mu)">“Nuevo comienzo” borra la memoria de compases y frases de esta sesión.</small></section>
+ <section class="panel"><h2>Qué decidió la máquina</h2><div id="st"></div><ul id="log" aria-live="off"></ul></section>
+</div></main>
+<script>
+const $=s=>document.querySelector(s),rnd=p=>Math.random()*100<p,pick=a=>a[Math.random()*a.length|0];
+function wpick(w){let s=w.reduce((a,b)=>a+b,0),r=Math.random()*s;for(let i=0;i<w.length;i++){r-=w[i];if(r<=0)return i}return w.length-1}
+const SC={"Menor pentatónica":[0,3,5,7,10],"Mayor pentatónica":[0,2,4,7,9],"Menor natural":[0,2,3,5,7,8,10],"Dórica":[0,2,3,5,7,9,10],"Frigia":[0,1,3,5,7,8,10],"Blues":[0,3,5,6,7,10]};
+const NN=["Do","Do#","Re","Re#","Mi","Fa","Fa#","Sol","Sol#","La","La#","Si"];
+const P={rep:25,motif:25,harm:20,rest:15,leap:20,drums:60,speed:50,arp:15,bars:30,tempo:96};
+const SL=[["rep","Repetir nota",0,80,"%","¿qué nota se repite?"],["motif","Repetir patrón",0,80,"%","¿qué patrón vuelve a sonar? (melodía y batería)"],["harm","Armonía",0,80,"%","¿qué nota suena a la vez con otra?"],["rest","Silencio",0,60,"%","¿cuándo callar? Sube solo si lleva muchas notas seguidas"],["leap","Saltos",0,80,"%","¿qué tan lejos salta la melodía?"],["drums","Densidad de batería",0,100,"%","más o menos golpes"],["speed","Velocidad de notas",0,100,"%","más alto = notas más seguidas (semicorcheas, corcheas); más bajo = negras y largas"],["arp","Arpegios",0,60,"%","¿cuándo recorrer el acorde nota por nota?"],["bars","Repetir compás",0,90,"%","¿cuándo volver a tocar un compás guardado? Más probable si el anterior sonó bien"],["tempo","Tempo",60,160," bpm",""]];
+let sc=SC["Menor pentatónica"],key=0,ac,master,dbus,nb,on=false,step=0,nextT=0,timer;
+let cur=5,hist=[],mq=[],melNext=0,run=0,lastD=2,root=0,chord=[0,3,7],pat=null,bar=0;
+const ev=[],logQ=[],S={nueva:0,repite:0,motivo:0,armonia:0,silencio:0,arpegio:0,notas:0,dec:0},opt={pno:true,bas:true,dru:true,pad:true,int:false};
+const base=()=>(key>=6?48:60)+key, hz=m=>440*2**((m-69)/12), rel=m=>((m-key)%12+12)%12;
+
+/* ---------- sonido ---------- */
+function init(){ac=new AudioContext();const comp=ac.createDynamicsCompressor();master=ac.createGain();master.gain.value=.8;dbus=ac.createGain();dbus.gain.value=.9;
+ const dl=ac.createDelay(1),fb=ac.createGain(),wet=ac.createGain();dl.delayTime.value=.31;fb.gain.value=.32;wet.gain.value=.25;
+ master.connect(comp);master.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(comp);dbus.connect(comp);comp.connect(ac.destination);
+ nb=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+function tone(t,m,v,dur,type,out,mix){const f=hz(m),g=ac.createGain(),fl=ac.createBiquadFilter(),o=ac.createOscillator(),o2=ac.createOscillator(),g2=ac.createGain();
+ fl.type="lowpass";fl.frequency.value=Math.min(6000,f*mix.br);o.type=type;o2.type="sine";o.frequency.value=f;o2.frequency.value=f*mix.h;g2.gain.value=mix.hg;
+ o.connect(fl);o2.connect(g2);g2.connect(fl);fl.connect(g);g.connect(out);const L=Math.max(mix.min,dur*1.4);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(mix.a*v,t+.006);g.gain.exponentialRampToValueAtTime(.0008,t+L);
+ o.start(t);o2.start(t);o.stop(t+L+.05);o2.stop(t+L+.05)}
+const piano=(t,m,v,d)=>tone(t,m,v,d,"triangle",master,{br:6,h:2,hg:.3,min:.6,a:.26});
+const bajo=(t,m,v,d)=>tone(t,m,v,d,"sine",master,{br:4,h:2,hg:.35,min:.3,a:.45});
+function noise(t,fr,type,len,vol){const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=nb;f.type=type;f.frequency.value=fr;
+ s.connect(f);f.connect(g);g.connect(dbus);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+len);s.start(t);s.stop(t+len+.02)}
+function kick(t){const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(42,t+.12);
+ g.gain.setValueAtTime(.9,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.connect(g);g.connect(dbus);o.start(t);o.stop(t+.32)}
+function snare(t,v){noise(t,1800,"highpass",.16,.5*v);const o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=190;
+ g.gain.setValueAtTime(.35*v,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);o.connect(g);g.connect(dbus);o.start(t);o.stop(t+.12)}
+
+/* ---------- decisiones ---------- */
+function log(t,k,txt){logQ.push({t,k,txt})}
+function setChord(){const tri=x=>{const th=sc.includes((x+3)%12)?3:4,fi=sc.includes((x+7)%12)?7:6;return [x,(x+th)%12,(x+fi)%12]},c=sc.slice(),mp=lastBar&&lastBar.notes.length>=3?lastBar.notes.map(q=>sc[q.idx%sc.length]):[];
+ root=bar==0?0:c[wpick(c.map(x=>{const s=(x-root+12)%12,w=s==5?5:s==7?2.5:s==0?.8:[3,4,8,9].includes(s)?1.5:[2,10].includes(s)?1.1:.3,tt=tri(x);return w*(1+2*(mp.length?mp.filter(p=>tt.includes(p)).length/mp.length:0))*(x==0?1.5:1)}))];
+ chord=tri(root)}
+function genBar(t){const d=P.drums/100;
+ if(pat&&rnd(P.motif)){log(t,"batería","repite el patrón del compás anterior");return}
+ const f=b=>rnd(Math.min(100,b*d*1.5)),K=[],Sn=[],H=[];
+ for(let i=0;i<16;i++){K[i]=f({0:95,8:70,6:20,10:25,14:12,3:10}[i]||0);Sn[i]=f({4:92,12:92,15:12,7:10,9:8}[i]||0);
+  H[i]=f(i%2==0?75:i%4==3?35:25)?(rnd(12)?2:1):0}
+ let fill=false;if(bar%4==3&&rnd(d*55)){fill=true;for(const i of [12,13,14,15])Sn[i]=rnd(85)}
+ pat={K,Sn,H};log(t,"batería",fill?"patrón nuevo con redoble final":"patrón nuevo")}
+function nextIdx(i){const n=sc.length,N=2*n+1,w=[];
+ for(let j=0;j<N;j++){const dd=Math.abs(j-cur);let x=dd==0?0:dd==1?10:dd==2?6:(P.leap/100)*4/dd;
+  if(chord.includes(sc[j%n]))x*=i%4==0?3:1.6;x*=1-Math.abs(j-n)/N*.6;if(j%n==0&&i==0&&bar%4==0)x*=2;w.push(x)}
+ return wpick(w)}
+const midi=idx=>{const n=sc.length;return base()+Math.floor(idx/n)*12+sc[idx%n]};
+function dpick(){const s=P.speed/100;return [1,2,3,4,8][wpick([.2+s*s*9,2+s*3,2.4*(1-s)+.3,3*(1-s)+.3,1.4*(1-s)])]}
+function emit(t,i,m,d,kind,sl,iv){piano(t,m,i%4==0?1:.65+Math.random()*.25,d*sl);ev.push({t,k:kind,m,d:d*sl});S.notas++;
+ if(iv){piano(t,m+iv,.6,d*sl);ev.push({t,k:"armonia",m:m+iv,d:d*sl});S.armonia++;S.notas++}}
+/* memoria de compases: puntaje = qué tan bien sonó */
+function scoreBar(b){const N=b.notes;if(N.length<3)return 0;const has=x=>b.chord.includes(sc[x%sc.length]);
+ const st=N.filter(x=>x.o%4==0),ct=st.length?st.filter(x=>has(x.idx)).length/st.length:0,iv=[];
+ for(let k=1;k<N.length;k++)iv.push(N[k].idx-N[k-1].idx);
+ const stepw=iv.filter(x=>Math.abs(x)<=2).length/iv.length,big=iv.filter(x=>Math.abs(x)>5).length;let rep=0;
+ for(let a=0;a<iv.length-1;a++)for(let c=a+1;c<iv.length-1;c++)if(iv[a]==iv[c]&&iv[a+1]==iv[c+1]&&(iv[a]||iv[a+1]))rep=1;
+ const cov=Math.min(16,N.reduce((a,x)=>a+Math.min(x.d,16-x.o),0))/16;
+ return Math.max(0,Math.round(25*ct+20*stepw-5*big+15*rep+10*(N.length>=4&&N.length<=12)+10*cov+(has(N[N.length-1].idx)?10:0)+(N.length>=4?10:0)+(N.some(x=>x.u)?6:0)))}
+let mem={b:[],p:[]},curBar=null,rp=null,grp=[],phQ=[],prevScore=0,lastBar=null,rt=null,tr=0,tp=0,stN=0,stT=0;
+const wsel=a=>a[wpick(a.map(x=>(x.score/100)**2*100+1))];
+function endBar(t){const b=curBar;if(!b)return;
+ if(!b.re){b.score=scoreBar(b);b.sig=b.notes.map(x=>x.o+":"+x.idx).join();
+  if(b.score>=55&&!mem.b.some(x=>x.sig==b.sig)){mem.b.push(b);if(mem.b.length>14)mem.b.sort((x,y)=>y.score-x.score).pop();log(t,"memoria","compás guardado"+(b.fused?" fusionado con tu entrometimiento":b.notes.some(x=>x.u)?" con tu entrometimiento":"")+": sonó bien (puntaje "+b.score+")")}}
+ prevScore=b.score;lastBar=b;grp.push(b);
+ if(grp.length==4){const a4=Math.round(grp.reduce((a,x)=>a+x.score,0)/4),sg=grp.map(x=>x.sig).join("|");
+  if(a4>=55&&!mem.p.some(x=>x.sig==sg)){mem.p.push({bars:grp.slice(),score:a4,sig:sg});if(mem.p.length>5)mem.p.sort((x,y)=>y.score-x.score).pop();log(t,"memoria","frase de 4 compases guardada (promedio "+a4+")")}
+  grp=[]}
+ curBar=null}
+function startBar(t){rp=null;rt=null;mq=[];let src=null;tr*=.9;tp*=.93;
+ if(!phQ.length&&bar%4==0&&mem.p.length&&rnd(70*(1-tp)*(.6+prevScore/150))){const ph=wsel(mem.p);tp+=.75;phQ=ph.bars.slice();log(t,"memoria","repite una frase guardada de 4 compases (puntaje "+ph.score+")")}
+ if(phQ.length)src=phQ.shift();
+ else if(mem.b.length&&rnd(P.bars*(.4+prevScore/100*1.2))){src=wsel(mem.b);log(t,"memoria","repite un compás guardado (puntaje "+src.score+")")}
+ if(src){curBar=Object.assign({},src,{re:true});rp=curBar;root=src.root;chord=src.chord.slice();pat=src.pat;melNext=0;genPad(t,true);return}
+ if(bar==0||rnd(75)){setChord();log(t,"acorde","compás "+(bar+1)+": acorde sobre "+NN[(key+root)%12])}
+ genBar(t);curBar={notes:[],root,chord:chord.slice(),pat,score:0};
+ const sr=(rnd(65)||!mem.b.length)?lastBar:wsel(mem.b);
+ if(sr&&sr.notes.length>=3&&rnd(80*(1-tr))){tr=Math.min(.95,tr+.35);const L=sr.notes.length,k=pick([1,1,2]),copy=rnd(40),free=rnd(80)?(rnd(50)?"inicio":"final"):null,
+  cut=free=="inicio"?sr.notes[k].o:free=="final"?sr.notes[L-k].o:0;
+  rt={notes:sr.notes,copy,free,cut};log(t,"ritmo",(copy?"copia el compás con las mismas notas":"parafrasea los tiempos con otras notas")+(free?", varía el "+free+" ("+k+" nota"+(k>1?"s":"")+")":", sin variación"))}
+ genPad(t,!!rt)}
+function melody(s,i,t,sl){
+ if(!opt.pno)return;if(rp){for(const q of rp.notes)if(q.o==i){emit(t,i,midi(q.idx),q.d,q.u?"usuario":"motivo",sl,q.iv);cur=q.idx;lastD=q.d;hist.push({idx:q.idx,d:q.d});if(hist.length>16)hist.shift()}return}
+ if(s<melNext)return;const n=sc.length,N=2*n+1;let idx,d,kind,txt,fiv,cont=false;
+ const rq=rt&&!(rt.free=="inicio"?i<rt.cut:rt.free=="final"&&i>=rt.cut)?rt.notes.find(x=>x.o==i)||"x":null;
+ if(rq=="x")return;
+ if(rq){d=rq.d;kind="ritmo";cont=true;if(rt.copy){idx=rq.idx;fiv=rq.iv}else idx=nextIdx(i)}
+ else if(mq.length){const q=mq.shift();idx=q.idx;d=q.d;kind=q.k||"motivo";cont=true}
+ else{S.dec++;
+  const pr=P.rest*(1+Math.max(0,run-6)*.4),tired=run>6;
+  if(rnd(pr)){const len=pick([2,2,3,4,4,6]);melNext=s+len;run=0;S.silencio++;ev.push({t,k:"sil",d:len*sl});
+   log(t,"silencio","pausa de "+len+" pasos"+(tired?" (llevaba muchas notas)":""));return}
+  if(rnd(P.arp*.35)){const A=[];for(let j=0;j<N;j++)if(chord.includes(sc[j%n]))A.push(j);
+   let p=A.reduce((b,x,k)=>Math.abs(x-cur)<Math.abs(A[b]-cur)?k:b,0);const L=pick([3,4]);p=Math.max(0,Math.min(p,A.length-L));let q=A.slice(p,p+L);
+   const md=pick(["sube","baja","sube y baja"]);if(md=="baja")q.reverse();else if(md!="sube")q=q.concat(q.slice(0,-1).reverse());
+   d=rnd(30+P.speed*.5)?1:2;idx=q[0];mq=q.slice(1).map(x=>({idx:x,d,k:"arpegio"}));kind="arpegio";S.arpegio++;txt="arpegio del acorde ("+md+", "+q.length+" notas)"}
+  else if(hist.length>=4&&rnd(P.motif*.4)){const sh=rnd(35)?pick([-2,-1,1,2]):0;
+   mq=hist.slice(-4).map(h=>({idx:Math.max(0,Math.min(N-1,h.idx+sh)),d:h.d}));({idx,d}=mq.shift());kind="motivo";S.motivo++;
+   txt="repite las últimas 4 notas"+(sh?", movidas "+(sh>0?"+":"")+sh+" grados":"")}
+  else if(rnd(P.rep)){idx=cur;d=lastD;kind="repite";S.repite++}
+  else{idx=nextIdx(i);d=dpick();kind="nueva";S.nueva++}
+ }
+ const m=base()+Math.floor(idx/n)*12+sc[idx%n],jump=Math.abs(idx-cur);
+ cur=idx;lastD=d;run++;hist.push({idx,d});if(hist.length>16)hist.shift();melNext=s+d;
+ let iv=fiv||0;if(fiv==null&&rnd(P.harm)){const c=[3,4,7,12,-12].filter(x=>sc.includes(rel(m+x)));iv=c.length?pick(c):12}
+ emit(t,i,m,d,kind,sl,iv);if(curBar)curBar.notes.push({o:i,idx,d,iv});
+ let name=NN[m%12];if(chord.includes(rel(m)))name+=" (del acorde)";
+ if(!txt)txt=kind=="repite"?name:name+(jump?" · salto de "+jump+" grado"+(jump>1?"s":""):"");else txt=name+" · "+txt;
+ if(iv)txt+=" + "+NN[(m+iv)%12];
+ if(!cont)log(t,kind=="motivo"?"patrón":kind=="repite"?"repite":kind=="arpegio"?"arpegio":kind=="ritmo"?"ritmo":"nueva",txt)}
+function drums(i,t){if(!opt.dru||!pat)return;
+ if(pat.K[i]){kick(t);ev.push({t,k:"K"})}
+ if(pat.Sn[i]){snare(t,i%4==0?1:.7);ev.push({t,k:"S"})}
+ if(pat.H[i]){noise(t,7000,"highpass",pat.H[i]==2?.22:.04,.22);ev.push({t,k:"H"})}}
+function bass(i,t,sl){if(!opt.bas)return;const p={0:92,8:65,6:22,10:28,14:18}[i];
+ if(p&&rnd(p)){const m=36+(key+root)%12;bajo(t,m,.9,sl*(i==0?6:3));ev.push({t,k:"bajo",m:m+24,d:sl*3})}}
+/* acompañante ambiente: acordes con su propio sistema de decisiones */
+let pd=null,pdPrev=null,padLast=0;
+const moodOf=()=>sc.includes(3)&&!sc.includes(4)?"triste (menor)":sc.includes(4)&&!sc.includes(3)?"alegre (mayor)":"ambiguo";
+function padNote(t,m,dur){const f=hz(m),g=ac.createGain(),fl=ac.createBiquadFilter(),L=Math.max(dur,.8);fl.type="lowpass";fl.Q.value=.7;
+ fl.frequency.setValueAtTime(500,t);fl.frequency.linearRampToValueAtTime(1100,t+.7);
+ [["sawtooth",-7],["triangle",6]].forEach(([ty,dt])=>{const o=ac.createOscillator();o.type=ty;o.frequency.value=f;o.detune.value=dt;o.connect(fl);o.start(t);o.stop(t+L+1.3)});
+ fl.connect(g);g.connect(master);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05,t+.4);g.gain.setValueAtTime(.05,t+L);g.gain.exponentialRampToValueAtTime(.0008,t+L+1.1)}
+function genPad(t,rep){if(!opt.pad){pd=null;return}
+ const dens=lastBar?lastBar.notes.length:6,g=grp.length,same=g>1&&grp[g-1].sig&&grp[g-1].sig==grp[g-2].sig,det=rep||same;
+ let st;const keepIt=pdPrev&&!pdPrev.rest&&(det?rnd(85):rnd(50));
+ if(keepIt){st=pdPrev;if(det&&rnd(40))log(t,"acompañante","repite su patrón: detectó que la melodía se repite")}
+ else{const busy=dens>9,sparse=dens<=4,rest=rnd(pdPrev&&pdPrev.rest?8:busy?26:10);
+  st={rest,n:[2,3,4][wpick(busy?[50,40,10]:sparse?[15,45,40]:[25,50,25])],hits:[[0],[0,8],[0,6,10],[0,10]][wpick(busy?[6,2,.5,1]:sparse?[2,3,2,2]:[4,3,1,1.5])]};
+  log(t,"acompañante",st.rest?"descansa este compás":["intervalo de 2 notas","acorde de 3 notas","acorde de 4 notas"][st.n-2]+", "+st.hits.length+" golpe"+(st.hits.length>1?"s":"")+" ("+(busy?"melodía ocupada":sparse?"melodía dispersa":"melodía media")+", "+moodOf()+")")}
+ pdPrev=st;
+ const th=(chord[1]-chord[0]+12)%12,fi=(chord[2]-chord[0]+12)%12;let r0=(key+root)%12;r0+=12*Math.round(((padLast||52)-r0)/12);if(r0<45)r0+=12;if(r0>60)r0-=12;padLast=r0;
+ const sv=[10,11].filter(x=>sc.includes((root+x)%12)),iv=st.n==2?(rnd(65)?[0,th]:[0,fi]):st.n==3?[0,th,fi]:[0,th,fi,sv.length?pick(sv):12];
+ pd={hits:st.hits,rest:st.rest,notes:iv.map(x=>r0+x)}}
+function pad(i,t,sl){if(!pd||pd.rest||!opt.pad)return;const k=pd.hits.indexOf(i);if(k<0)return;
+ const dur=((pd.hits[k+1]??16)-i)*sl+(k==pd.hits.length-1?sl*3:0);
+ pd.notes.forEach((m,j)=>{padNote(t+j*.045,m,dur);ev.push({t:t+j*.045,k:"pad",m,d:dur})})}
+function tick(s,t){const sl=60/P.tempo/4,i=s%16;
+ if(i==0){endBar(t);bar=s>>4;startBar(t)}
+ drums(i,t);bass(i,t,sl);pad(i,t,sl);melody(s,i,t,sl)}
+function sched(){while(nextT<ac.currentTime+.12){stN=step;stT=nextT;tick(step,nextT);nextT+=60/P.tempo/4;step++}}
+
+/* ---------- controles ---------- */
+function toggle(){if(!ac)init();on=!on;$("#pw").textContent=on?"ON":"OFF";$("#pw").setAttribute("aria-pressed",on);
+ if(on){ac.resume();step=0;melNext=0;mq=[];run=0;pat=null;curBar=null;rp=null;grp=[];phQ=[];prevScore=0;lastBar=null;rt=null;pd=null;nextT=ac.currentTime+.1;timer=setInterval(sched,25)}else clearInterval(timer)}
+$("#pw").onclick=toggle;
+const box=$("#sls");SL.forEach(([k,l,a,b,u,h])=>{const e=document.createElement("div");e.className="sl";
+ e.innerHTML=`<label for="s_${k}">${l}<span id="v_${k}">${P[k]}${u}</span></label><input type="range" id="s_${k}" min="${a}" max="${b}" value="${P[k]}">${h?`<small>${h}</small>`:""}`;
+ box.appendChild(e);e.querySelector("input").oninput=ev2=>{P[k]=+ev2.target.value;$("#v_"+k).textContent=P[k]+u}});
+const setSl=k=>{$("#s_"+k).value=P[k];$("#v_"+k).textContent=P[k]+SL.find(x=>x[0]==k)[4]};
+Object.keys(SC).forEach(k=>$("#scale").add(new Option(k,k)));NN.forEach((n,i)=>$("#key").add(new Option(n,i)));
+function setScale(){sc=SC[$("#scale").value];key=+$("#key").value;cur=Math.min(cur,2*sc.length);hist=[];mq=[];root=0;setChord();stats()}
+$("#scale").onchange=$("#key").onchange=setScale;
+function newStart(){mem={b:[],p:[]};grp=[];phQ=[];curBar=null;rp=null;prevScore=0;lastBar=null;rt=null;tr=0;tp=0;pd=null;pdPrev=null;hist=[];mq=[];run=0;melNext=0;pat=null;root=0;step=0;cur=sc.length;
+ Object.keys(S).forEach(k=>S[k]=0);$("#log").innerHTML="";logQ.length=0;log(ac?ac.currentTime:0,"memoria","nuevo comienzo: memoria borrada");stats()}
+$("#fresh").onclick=newStart;
+/* modo intervenir: la tecla pide una dirección, la máquina elige la nota que mejor suena */
+let uk=0,ur=0,ut=0;
+function userKey(k){if(!ac)init();ac.resume();const now=ac.currentTime,n=sc.length,N=2*n+1,has=j=>chord.includes(sc[j%n]),
+ fit=j=>{const dm=Math.abs(midi(j)-midi(cur));return (dm>12?.4:[.6,.4,1,1.2,1.2,1,.3,1.3,.9,1,.8,.4,1.1][dm])*(has(j)?2:1)*(1-Math.abs(j-n)/N*.5)};
+ ur=(k==uk&&now-ut<2.5)?ur+1:1;uk=k;ut=now;let idx,msg;
+ if(ur>=2){const p=(has(cur)?1:.7)*[.9,.55,.22,.06][Math.min(ur-2,3)];
+  if(rnd(p*100)){idx=cur;msg="repite ("+ur+".ª vez), todavía suena bien"}
+  else{const w=[];for(let j=0;j<N;j++)w.push(j==cur||Math.abs(j-cur)>3?0:fit(j)*(Math.abs(j-cur)==1?1.5:1));idx=wpick(w);msg="desobedece: repetir "+ur+" veces ya no suena bien"}}
+ else{let t=cur+[-2,1,2,3,4][k-1];const lift=k>=3&&rnd(20);if(lift)t++;
+  const w=[];for(let j=0;j<N;j++)w.push(Math.exp(-((j-t)**2)/2.9)*fit(j)*(j==cur?(k==1?.5:.15):1));idx=wpick(w);
+  const dj=idx-cur;msg=dj>0?"sube "+dj:dj<0?"baja "+(-dj):"igual";if(lift&&dj>0)msg+=" (pequeño subidón)"}
+ cur=idx;lastD=2;mq=[];hist.push({idx,d:2});if(hist.length>16)hist.shift();
+ const m=midi(idx);let iv=0;if(rnd(P.harm*.6)){const c=[3,4,7,12,-12].filter(x=>sc.includes(rel(m+x)));iv=c.length?pick(c):12}
+ emit(now+.01,0,m,3,"usuario",60/P.tempo/4,iv);
+ if(curBar){const sa=Math.round(stN-(stT-now)/(60/P.tempo/4)),o=Math.max(0,Math.min(15,sa-(stN>>4)*16));
+  if(curBar.re)curBar=Object.assign({},curBar,{re:false,fused:true,notes:curBar.notes.slice()});
+  curBar.notes.push({o,idx,d:2,iv,u:1});curBar.notes.sort((a,b)=>a.o-b.o)}
+ log(now,"tú","tecla "+k+" → "+NN[m%12]+(has(idx)?" (del acorde)":"")+", "+msg)}
+addEventListener("keydown",e=>{if(!opt.int||e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.key.length!=1)return;const k=+e.key;if(k>=1&&k<=5)userKey(k)});
+document.querySelectorAll("#keys button").forEach(b=>b.onpointerdown=()=>userKey(+b.textContent));
+$("#oInt").addEventListener("change",e=>{opt.int=e.target.checked;$("#keys").style.display=e.target.checked?"flex":"none";mq=[]});
+[["oPno","pno"],["oBas","bas"],["oPad","pad"],["oDru","dru"]].forEach(([id,k])=>$("#"+id).onchange=e=>opt[k]=e.target.checked);
+$("#dice").onclick=()=>{const r=(a,b)=>a+Math.random()*(b-a)|0;Object.assign(P,{rep:r(5,45),motif:r(10,45),harm:r(0,40),rest:r(5,30),leap:r(5,50),drums:r(30,90),speed:r(20,85),arp:r(0,35),bars:r(10,60),tempo:r(70,130)});
+ Object.keys(P).forEach(setSl);$("#scale").value=pick(Object.keys(SC));$("#key").value=r(0,12);setScale()};
+
+/* ---------- pantalla ---------- */
+const cv=$("#cv"),cx=cv.getContext("2d"),css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const COL={nueva:"--c1",repite:"--c2",motivo:"--c3",armonia:"--c4",bajo:"--c5",arpegio:"--c6",ritmo:"--c7",usuario:"--tx",pad:"--mu"};
+function stats(){const D=S.dec||1;$("#st").innerHTML=[["nuevas",S.nueva/D],["repetidas",S.repite/D],["patrones",S.motivo/D],["silencios",S.silencio/D],["arpegios",S.arpegio/D],["armonía",S.armonia/(S.notas||1)]]
+ .map(([l,v])=>`<span>${l} ${Math.round(v*100)}%</span>`).join("")+`<span>memoria: ${mem.b.length} compases · ${mem.p.length} frases</span><span>ganas de copiar ritmo ${Math.round(80*(1-tr))}% · repetir frase ${Math.round(Math.max(0,70*(1-tp)))}%</span><span>ambiente del acompañante: ${moodOf()}</span>`}
+function draw(){const dpr=devicePixelRatio||1,W=Math.round(cv.clientWidth*dpr),H=Math.round(cv.clientHeight*dpr);
+ if(cv.width!=W)cv.width=W;if(cv.height!=H)cv.height=H;cx.clearRect(0,0,W,H);
+ const now=ac?ac.currentTime:0,win=8,ph=W*.72,mh=H*.7,X=t=>ph+(t-now)/win*W,bd=css("--bd"),mu=css("--mu");
+ cx.strokeStyle=bd;cx.lineWidth=1;for(let k=0;k<5;k++){const y=mh*k/4;cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke()}
+ while(ev.length&&ev[0].t<now-win*.8)ev.shift();
+ for(const e of ev){const x=X(e.t);if(x>W)continue;
+  if(e.k=="sil"){cx.fillStyle=mu;cx.globalAlpha=.18;cx.fillRect(x,0,e.d/win*W,mh);cx.globalAlpha=1}
+  else if(e.m!=null){const y=mh*(1-(e.m-34)/(96-34));cx.fillStyle=css(COL[e.k]);cx.fillRect(x,y-3*dpr,Math.max(4*dpr,e.d/win*W-2),6*dpr)}
+  else{const row={K:0,S:1,H:2}[e.k],y=mh+(H-mh)*(row+.5)/3;cx.fillStyle=css(["--c2","--c1","--c5"][row]);cx.beginPath();cx.arc(x,y,4*dpr,0,7);cx.fill()}}
+ cx.strokeStyle=css("--tx");cx.lineWidth=2;cx.beginPath();cx.moveTo(ph,0);cx.lineTo(ph,H);cx.stroke();
+ let ch=false;while(logQ.length&&logQ[0].t<=now){const l=logQ.shift(),li=document.createElement("li");
+  li.innerHTML=`<b style="color:${css({nueva:"--c1",repite:"--c2","patrón":"--c3",silencio:"--mu",acorde:"--c4","batería":"--c5",arpegio:"--c6",ritmo:"--c7",memoria:"--c3","tú":"--tx","acompañante":"--c4"}[l.k])}">${l.k}</b><span>${l.txt}</span>`;
+  $("#log").prepend(li);while($("#log").children.length>13)$("#log").lastChild.remove();ch=true}
+ if(ch)stats();requestAnimationFrame(draw)}
+setScale();stats();draw();
+</script></body></html>
